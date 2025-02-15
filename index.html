@@ -1,136 +1,202 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Malaria Detection - DAS medhub</title>
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
-
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            text-align: center;
-            margin: 20px;
-        }
-
-        h1 {
-            color: #FFA500; /* Orange for DAS */
-            display: inline;
-        }
-
-        h1 span {
-            color: #008000; /* Green for medhub */
-        }
-
-        #image-container {
-            margin-top: 20px;
-        }
-
-        #result {
-            margin-top: 20px;
-            font-size: 1.5em;
-            font-weight: bold;
-        }
-
-        #predict-button {
-            display: none;
-            margin-top: 20px;
-            padding: 10px 20px;
-            font-size: 16px;
-            background-color: #4CAF50;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-
-        #predict-button:disabled {
-            background-color: #ccc;
-            cursor: not-allowed;
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Malaria Detection - DAS medhub</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet" />
+  <style>
+    /* Global Reset */
+    * {
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: 'Roboto', sans-serif;
+      margin: 0;
+      padding: 0;
+      background: #f4f7f6;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+    }
+    
+    .app-container {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+      padding: 2rem;
+      max-width: 500px;
+      width: 90%;
+      text-align: center;
+    }
+    
+    h1 {
+      color: #FFA500; /* Orange for DAS */
+      margin-bottom: 0.3rem;
+    }
+    
+    h1 span {
+      color: #008000; /* Green for medhub */
+    }
+    
+    h2 {
+      color: #333;
+      font-weight: 500;
+      margin-bottom: 1.5rem;
+      font-size: 1.2rem;
+    }
+    
+    /* Custom Upload Button */
+    .upload-btn {
+      display: inline-block;
+      padding: 12px 20px;
+      background-color: #008000;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      font-size: 16px;
+      cursor: pointer;
+      transition: background 0.3s ease, transform 0.2s ease;
+      margin-bottom: 1rem;
+    }
+    
+    .upload-btn:hover {
+      background-color: #006400;
+      transform: translateY(-2px);
+    }
+    
+    #image-upload {
+      display: none;
+    }
+    
+    #image-container {
+      margin: 20px 0;
+    }
+    
+    #uploaded-image {
+      max-width: 100%;
+      border-radius: 8px;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+      display: none;
+    }
+    
+    #predict-button {
+      display: none;
+      padding: 12px 20px;
+      font-size: 16px;
+      background-color: #4CAF50;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.3s ease, transform 0.2s ease;
+      margin-top: 10px;
+    }
+    
+    #predict-button:hover:not(:disabled) {
+      background-color: #45a049;
+      transform: translateY(-2px);
+    }
+    
+    #predict-button:disabled {
+      background-color: #ccc;
+      cursor: not-allowed;
+    }
+    
+    #result {
+      margin-top: 20px;
+      font-size: 1.3em;
+      font-weight: bold;
+      color: #333;
+      min-height: 1.5em;
+    }
+  </style>
 </head>
 <body>
+  <div class="app-container">
     <h1>DAS <span>medhub</span></h1>
     <h2>Malaria Detection using Blood Smear Images</h2>
-
-    <input type="file" id="image-upload" accept="image/*">
-    <button id="predict-button" onclick="predict()">Predict</button>
-
+    
+    <!-- Custom Upload Button -->
+    <label for="image-upload" class="upload-btn">Upload Image</label>
+    <input type="file" id="image-upload" accept="image/*" />
+    
     <div id="image-container">
-        <img id="uploaded-image" src="#" alt="Uploaded Image" style="max-width: 300px; display: none;">
+      <img id="uploaded-image" src="#" alt="Uploaded Image">
     </div>
-
+    
+    <button id="predict-button" onclick="predict()">Predict</button>
+    
     <div id="result"></div>
+  </div>
 
-    <script>
-        let model;
-
-        // Load the model
-        async function loadModel() {
-            try {
-                model = await tf.loadGraphModel('model/model.json');
-                console.log('Model loaded successfully');
-            } catch (error) {
-                console.error('Error loading model:', error);
-                resultDiv.innerText = 'Error loading model. Please try again later.';
-            }
-        }
-
-        loadModel();  // Call loadModel when the page loads
-
-        const imageUpload = document.getElementById('image-upload');
-        const uploadedImage = document.getElementById('uploaded-image');
-        const predictButton = document.getElementById('predict-button');
-        const resultDiv = document.getElementById('result');
-
-        imageUpload.addEventListener('change', (event) => {
-            const file = event.target.files[0];
-            const reader = new FileReader();
-
-            // Clear previous results when a new image is uploaded
-            resultDiv.innerText = '';
-            predictButton.disabled = true; // Disable the button until the image is loaded
-
-            reader.onload = function(e) {
-                uploadedImage.src = e.target.result;
-                uploadedImage.style.display = 'block';
-                predictButton.style.display = 'inline-block'; // Show the predict button
-                predictButton.disabled = false; // Enable the button after the image is displayed
-            };
-
-            reader.readAsDataURL(file);
-        });
-
-        async function predict() {
-            predictButton.disabled = true; // Disable the button during prediction
-            resultDiv.innerText = 'Predicting...';
-
-            try {
-                // Preprocess the image
-                const tensorImg = tf.browser.fromPixels(uploadedImage)
-                    .resizeNearestNeighbor([224, 224]) // Resize to model's input size
-                    .toFloat()
-                    .expandDims(0)
-                    .div(tf.scalar(255));  // Normalize image to [0, 1] range
-
-                // Make the prediction
-                const predictions = await model.predict(tensorImg).data();
-
-                // Handle the prediction result
-                const isInfected = predictions[0] <= 0.5;
-                const confidence = isInfected ? (1 - predictions[0]) * 100 : predictions[0] * 100;
-                const result = isInfected ? 'Infected' : 'Uninfected';
-
-                // Display the result with confidence score
-                resultDiv.innerText = `Prediction: ${result} (${confidence.toFixed(2)}% confidence)`;
-            } catch (error) {
-                console.error('Error during prediction:', error);
-                resultDiv.innerText = 'Error during prediction. Please try again later.';
-            }
-
-            predictButton.disabled = false; // Enable the button again
-        }
-    </script>
+  <script>
+    let model;
+    
+    // Load the model on page load
+    async function loadModel() {
+      try {
+        model = await tf.loadGraphModel('model/model.json');
+        console.log('Model loaded successfully');
+      } catch (error) {
+        console.error('Error loading model:', error);
+        resultDiv.innerText = 'Error loading model. Please try again later.';
+      }
+    }
+    
+    loadModel();
+    
+    const imageUpload = document.getElementById('image-upload');
+    const uploadedImage = document.getElementById('uploaded-image');
+    const predictButton = document.getElementById('predict-button');
+    const resultDiv = document.getElementById('result');
+    
+    imageUpload.addEventListener('change', (event) => {
+      const file = event.target.files[0];
+      const reader = new FileReader();
+      
+      // Clear previous results
+      resultDiv.innerText = '';
+      predictButton.disabled = true;
+      
+      reader.onload = function(e) {
+        uploadedImage.src = e.target.result;
+        uploadedImage.style.display = 'block';
+        predictButton.style.display = 'inline-block';
+        predictButton.disabled = false;
+      };
+      
+      if (file) {
+        reader.readAsDataURL(file);
+      }
+    });
+    
+    async function predict() {
+      predictButton.disabled = true;
+      resultDiv.innerText = 'Predicting...';
+      
+      try {
+        const tensorImg = tf.browser.fromPixels(uploadedImage)
+          .resizeNearestNeighbor([224, 224])
+          .toFloat()
+          .expandDims(0)
+          .div(tf.scalar(255));
+          
+        const predictions = await model.predict(tensorImg).data();
+        const isInfected = predictions[0] <= 0.5;
+        const confidence = isInfected ? (1 - predictions[0]) * 100 : predictions[0] * 100;
+        const result = isInfected ? 'Infected' : 'Uninfected';
+        resultDiv.innerText = `Prediction: ${result} (${confidence.toFixed(2)}% confidence)`;
+      } catch (error) {
+        console.error('Error during prediction:', error);
+        resultDiv.innerText = 'Error during prediction. Please try again later.';
+      }
+      
+      predictButton.disabled = false;
+    }
+  </script>
 </body>
 </html>
