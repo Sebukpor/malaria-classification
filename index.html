@@ -7,48 +7,42 @@
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet" />
   <style>
-    /* Global Reset */
+    /* Global Styles */
     * {
       box-sizing: border-box;
     }
-    
     body {
       font-family: 'Roboto', sans-serif;
-      margin: 0;
-      padding: 0;
       background: #f4f7f6;
       display: flex;
       justify-content: center;
       align-items: center;
       min-height: 100vh;
+      margin: 0;
+      padding: 20px;
+      text-align: center;
     }
-    
     .app-container {
       background: #fff;
       border-radius: 12px;
       box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
       padding: 2rem;
       max-width: 500px;
-      width: 90%;
-      text-align: center;
+      width: 100%;
     }
-    
     h1 {
       color: #FFA500; /* Orange for DAS */
       margin-bottom: 0.3rem;
     }
-    
     h1 span {
       color: #008000; /* Green for medhub */
     }
-    
     h2 {
       color: #333;
       font-weight: 500;
       margin-bottom: 1.5rem;
       font-size: 1.2rem;
     }
-    
     /* Custom Upload Button */
     .upload-btn {
       display: inline-block;
@@ -62,27 +56,22 @@
       transition: background 0.3s ease, transform 0.2s ease;
       margin-bottom: 1rem;
     }
-    
     .upload-btn:hover {
       background-color: #006400;
       transform: translateY(-2px);
     }
-    
     #image-upload {
       display: none;
     }
-    
     #image-container {
       margin: 20px 0;
     }
-    
     #uploaded-image {
       max-width: 100%;
       border-radius: 8px;
       box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
       display: none;
     }
-    
     #predict-button {
       display: none;
       padding: 12px 20px;
@@ -95,23 +84,47 @@
       transition: background 0.3s ease, transform 0.2s ease;
       margin-top: 10px;
     }
-    
     #predict-button:hover:not(:disabled) {
       background-color: #45a049;
       transform: translateY(-2px);
     }
-    
     #predict-button:disabled {
       background-color: #ccc;
       cursor: not-allowed;
     }
-    
+    /* Prediction Result Card with Progress Bar */
     #result {
       margin-top: 20px;
-      font-size: 1.3em;
-      font-weight: bold;
+      display: none;
+    }
+    .result-card {
+      background: #f9f9f9;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+      padding: 20px;
+    }
+    .prediction-label {
+      font-size: 1.5em;
+      margin-bottom: 10px;
+    }
+    .progress-bar {
+      width: 100%;
+      background: #ddd;
+      border-radius: 6px;
+      overflow: hidden;
+      margin-bottom: 10px;
+      height: 20px;
+    }
+    .progress-fill {
+      height: 100%;
+      background: #4CAF50;
+      width: 0%;
+      transition: width 0.5s ease;
+    }
+    .confidence-text {
+      font-size: 1em;
       color: #333;
-      min-height: 1.5em;
     }
   </style>
 </head>
@@ -130,7 +143,16 @@
     
     <button id="predict-button" onclick="predict()">Predict</button>
     
-    <div id="result"></div>
+    <!-- Prediction Result Card -->
+    <div id="result">
+      <div class="result-card">
+        <div class="prediction-label" id="result-label"></div>
+        <div class="progress-bar">
+          <div class="progress-fill" id="progress-fill"></div>
+        </div>
+        <div class="confidence-text" id="confidence-text"></div>
+      </div>
+    </div>
   </div>
 
   <script>
@@ -143,23 +165,28 @@
         console.log('Model loaded successfully');
       } catch (error) {
         console.error('Error loading model:', error);
-        resultDiv.innerText = 'Error loading model. Please try again later.';
+        document.getElementById('result').innerText = 'Error loading model. Please try again later.';
       }
     }
-    
     loadModel();
     
     const imageUpload = document.getElementById('image-upload');
     const uploadedImage = document.getElementById('uploaded-image');
     const predictButton = document.getElementById('predict-button');
     const resultDiv = document.getElementById('result');
+    const resultLabel = document.getElementById('result-label');
+    const progressFill = document.getElementById('progress-fill');
+    const confidenceText = document.getElementById('confidence-text');
     
     imageUpload.addEventListener('change', (event) => {
       const file = event.target.files[0];
       const reader = new FileReader();
       
       // Clear previous results
-      resultDiv.innerText = '';
+      resultDiv.style.display = 'none';
+      resultLabel.innerText = '';
+      progressFill.style.width = '0%';
+      confidenceText.innerText = '';
       predictButton.disabled = true;
       
       reader.onload = function(e) {
@@ -176,23 +203,35 @@
     
     async function predict() {
       predictButton.disabled = true;
-      resultDiv.innerText = 'Predicting...';
+      resultLabel.innerText = 'Predicting...';
+      resultDiv.style.display = 'block';
+      progressFill.style.width = '0%';
+      confidenceText.innerText = '';
       
       try {
+        // Preprocess the image
         const tensorImg = tf.browser.fromPixels(uploadedImage)
           .resizeNearestNeighbor([224, 224])
           .toFloat()
           .expandDims(0)
           .div(tf.scalar(255));
           
+        // Make the prediction
         const predictions = await model.predict(tensorImg).data();
+        
+        // For demonstration, assuming model outputs a single probability value
+        // Change the logic if your model returns multiple outputs
         const isInfected = predictions[0] <= 0.5;
         const confidence = isInfected ? (1 - predictions[0]) * 100 : predictions[0] * 100;
-        const result = isInfected ? 'Infected' : 'Uninfected';
-        resultDiv.innerText = `Prediction: ${result} (${confidence.toFixed(2)}% confidence)`;
+        const resultText = isInfected ? 'Infected' : 'Uninfected';
+        
+        // Update the result card
+        resultLabel.innerText = `Prediction: ${resultText}`;
+        progressFill.style.width = `${confidence}%`;
+        confidenceText.innerText = `${confidence.toFixed(2)}% confidence`;
       } catch (error) {
         console.error('Error during prediction:', error);
-        resultDiv.innerText = 'Error during prediction. Please try again later.';
+        resultLabel.innerText = 'Error during prediction. Please try again later.';
       }
       
       predictButton.disabled = false;
