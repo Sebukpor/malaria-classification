@@ -478,7 +478,7 @@
                     </div>
 
                     <button id="predict-button" class="btn btn-success" onclick="predict()" disabled>
-                        <i class="fas fa-brain"></i> Analyze X-ray
+                        <i class="fas fa-brain"></i> Analyze Image
                     </button>
 
                     <button id="download-button" class="btn" style="margin-top: 1rem; display: none;" onclick="showDemographicsForm()">
@@ -639,7 +639,7 @@
                     
                     const isInfected = predictions[0] <= 0.5;
                     const confidence = isInfected ? (1 - predictions[0]) * 100 : predictions[0] * 100;
-                    const result = isInfected ? 'Normal' : 'Infected';
+                    const result = isInfected ? 'Infected' : 'Normal';
                     
                     predictionResult = result;
                     predictionConfidence = confidence;
